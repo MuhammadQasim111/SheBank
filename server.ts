@@ -115,6 +115,9 @@ async function startServer() {
   }
 
   app.get("/api/get_user_financials", async (req, res) => {
+    if (!process.env.DATABASE_URL) {
+      return res.status(500).json({ error: "DATABASE_URL is not configured in environment variables." });
+    }
     const userId = req.query.userId || 1;
     try {
       const userRes = await pool.query("SELECT * FROM users WHERE id = $1", [userId]);
@@ -129,7 +132,8 @@ async function startServer() {
         goals: goalsRes.rows
       });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error("Database error:", err);
+      res.status(500).json({ error: "Database connection failed. Check your DATABASE_URL." });
     }
   });
 
@@ -169,6 +173,9 @@ async function startServer() {
   });
 
   app.post("/api/save_budget", async (req, res) => {
+    if (!process.env.DATABASE_URL) {
+      return res.status(500).json({ error: "DATABASE_URL is not configured." });
+    }
     const { userId, month, total } = req.body;
     try {
       const result = await pool.query(
@@ -177,7 +184,8 @@ async function startServer() {
       );
       res.json(result.rows[0]);
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error("Database error:", err);
+      res.status(500).json({ error: "Failed to save budget to database." });
     }
   });
 
@@ -237,9 +245,17 @@ async function startServer() {
     app.use(express.static("dist"));
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  return app;
+}
+
+// Only start the server if this file is run directly
+if (import.meta.url === `file://${process.argv[1]}` || process.env.NODE_ENV === "production") {
+  startServer().then(app => {
+    const PORT = 3000;
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
   });
 }
 
-startServer();
+export default startServer;

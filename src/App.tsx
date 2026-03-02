@@ -121,6 +121,11 @@ export default function App() {
   const fetchData = async () => {
     try {
       const res = await fetch('/api/get_user_financials');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        setError(errorData.error || `Server error: ${res.status}. Check your DATABASE_URL.`);
+        return;
+      }
       const data = await res.json();
       setUser(data.user);
       setExpenses(data.expenses);
@@ -128,10 +133,13 @@ export default function App() {
       setGoals(data.goals || []);
 
       const docsRes = await fetch('/api/get_financial_docs');
-      const docsData = await docsRes.json();
-      setDocs(docsData);
+      if (docsRes.ok) {
+        const docsData = await docsRes.json();
+        setDocs(docsData);
+      }
     } catch (err) {
-      console.error(err);
+      console.error("Fetch error:", err);
+      setError("Network error connecting to the backend. If you're on Vercel, ensure your environment variables are set and the server is running.");
     } finally {
       setLoading(false);
     }
@@ -350,10 +358,10 @@ export default function App() {
         generateAiRecommendation();
       } else {
         const data = await res.json();
-        setError(data.error || "Failed to save budget");
+        setError(data.error || `Server error: ${res.status}. Check your DATABASE_URL in Vercel settings.`);
       }
     } catch (err) {
-      setError("Network error. Please try again.");
+      setError("Network error. Ensure your server is running and DATABASE_URL is set in environment variables.");
     }
   };
 
