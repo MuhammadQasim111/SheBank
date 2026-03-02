@@ -228,7 +228,12 @@ export default function App() {
     if (!user) return;
     setIsGeneratingAi(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        setIsGeneratingAi(false);
+        return;
+      }
+      const ai = new GoogleGenAI({ apiKey });
       const model = "gemini-3-flash-preview";
       
       const financialData = {
@@ -409,6 +414,12 @@ export default function App() {
         }
       });
 
+      if (!response.candidates || response.candidates.length === 0) {
+        setMessages(prev => [...prev, { role: 'model', text: "I'm sorry, I couldn't generate a response. Please try rephrasing." }]);
+        setIsTyping(false);
+        return;
+      }
+
       let finalResponse = response.text;
       const functionCalls = response.functionCalls;
 
@@ -436,7 +447,18 @@ export default function App() {
           ],
           config: { systemInstruction }
         });
+
+        if (!secondResponse.candidates || secondResponse.candidates.length === 0) {
+          setMessages(prev => [...prev, { role: 'model', text: "I encountered an error processing the tool results." }]);
+          setIsTyping(false);
+          return;
+        }
+
         finalResponse = secondResponse.text;
+        
+        // Refresh data if tools were called as they might have modified state
+        await fetchData();
+        generateAiRecommendation();
       }
 
       setMessages(prev => [...prev, { role: 'model', text: finalResponse || "I'm sorry, I couldn't process that." }]);
